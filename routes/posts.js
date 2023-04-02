@@ -1,7 +1,9 @@
+const express = require("express");
+
+const { isLoggedIn, isNotLoggedIn } = require("../middlewares/index");
+
 const { faker } = require("@faker-js/faker");
 const shortId = require("shortid");
-
-const express = require("express");
 
 const router = express.Router();
 
@@ -29,19 +31,6 @@ router.get("/", (req, res) => {
     }),
   }));
   res.json(posts);
-});
-
-// addPost API
-router.post("/", (req, res) => {
-  const data = req.body;
-  const post = {
-    id: shortId.generate(),
-    content: data.text,
-    User: data.User,
-    Images: [],
-    Comments: [],
-  };
-  res.json(post);
 });
 
 module.exports = router;
