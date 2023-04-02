@@ -9,6 +9,13 @@ const { User, Post } = require("../models");
 
 const router = express.Router();
 
+/*
+API 목록
+- logIn API
+- logOut API
+- signUp API
+*/
+
 /** logIn API, POST /user/login */
 router.post("/login", (req, res, next) => {
   passport.authenticate("local", (err, user, info) => {
@@ -41,8 +48,10 @@ router.post("/login", (req, res, next) => {
 });
 
 /** logOut API, POST /user/logout */
-router.post("/logout/", (req, res, next) => {
-  req.logout();
+router.post("/logout", (req, res, next) => {
+  req.logout(() => {
+    res.redirect("/");
+  });
   req.session.destroy();
   res.send("ok");
 });
