@@ -6,6 +6,7 @@ const { faker } = require("@faker-js/faker");
 const shortId = require("shortid");
 
 const { User, Post } = require("../models");
+const { isLoggedIn, isNotLoggedIn } = require("../middlewares/index");
 
 const router = express.Router();
 
@@ -17,7 +18,7 @@ API 목록
 */
 
 /** logIn API, POST /user/login */
-router.post("/login", (req, res, next) => {
+router.post("/login", isNotLoggedIn, (req, res, next) => {
   passport.authenticate("local", (err, user, info) => {
     if (err) {
       console.error(err);
@@ -37,9 +38,20 @@ router.post("/login", (req, res, next) => {
           exclude: ["password"],
         },
         include: [
-          { model: Post, attributes: ["id"] },
-          { model: User, as: "Followings", attributes: ["id"] },
-          { model: User, as: "Followers", attributes: ["id"] },
+          {
+            model: Post,
+            attributes: ["id"],
+          },
+          {
+            model: User,
+            as: "Followings",
+            attributes: ["id"],
+          },
+          {
+            model: User,
+            as: "Followers",
+            attributes: ["id"],
+          },
         ],
       });
       return res.status(200).json(fullUserWithoutPassword);
@@ -48,16 +60,15 @@ router.post("/login", (req, res, next) => {
 });
 
 /** logOut API, POST /user/logout */
-router.post("/logout", (req, res, next) => {
+router.post("/logout", isLoggedIn, (req, res, next) => {
   req.logout(() => {
-    res.redirect("/");
+    req.session.destroy();
+    res.send("ok");
   });
-  req.session.destroy();
-  res.send("ok");
 });
 
 /** signUp(회원가입) API, POST /user */
-router.post("/", async (req, res, next) => {
+router.post("/", isNotLoggedIn, async (req, res, next) => {
   try {
     // 이메일 중복 여부 확인
     const exUser = await User.findOne({
