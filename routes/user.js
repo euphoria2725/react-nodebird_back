@@ -1,45 +1,53 @@
+const bcrypt = require("bcrypt");
+const express = require("express");
+const passport = require("passport");
+
 const { faker } = require("@faker-js/faker");
 const shortId = require("shortid");
-const { User, Post } = require("../models");
-const bcrypt = require("bcrypt");
 
-const express = require("express");
+const { User, Post } = require("../models");
 
 const router = express.Router();
 
-// logIn API
-router.post("/login", async (req, res, next) => {
-  try {
-    const exUser = await User.findOne({
-      where: {
-        email: req.body.email,
-      },
-      attributes: {
-        exclude: ["password"],
-      },
-    });
-    console.log(exUser);
-    if (exUser) {
-      const user = {
-        ...exUser.dataValues,
-        Posts: [],
-        Followings: new Array(3)
-          .fill()
-          .map((v) => ({ nickname: faker.name.firstName() })),
-        Followers: new Array(4)
-          .fill()
-          .map((v) => ({ nickname: faker.name.firstName() })),
-      };
-      res.json(user);
-    } else {
+/** logIn API, POST /user/login */
+router.post("/login", (req, res, next) => {
+  passport.authenticate("local", (err, user, info) => {
+    if (err) {
+      console.error(err);
+      return next(err);
     }
-  } catch (err) {
-    console.error(err);
-    next(error);
-  }
+    if (info) {
+      return res.status(401).send(info.reason);
+    }
+    return req.login(user, async (loginErr) => {
+      if (loginErr) {
+        console.error(loginErr);
+        return next(loginErr);
+      }
+      const fullUserWithoutPassword = await User.findOne({
+        where: { id: user.id },
+        attributes: {
+          exclude: ["password"],
+        },
+        include: [
+          { model: Post, attributes: ["id"] },
+          { model: User, as: "Followings", attributes: ["id"] },
+          { model: User, as: "Followers", attributes: ["id"] },
+        ],
+      });
+      return res.status(200).json(fullUserWithoutPassword);
+    });
+  })(req, res, next);
 });
 
-/** signUp API, POST /user */
+/** logOut API, POST /user/logout */
+router.post("/logout/", (req, res, next) => {
+  req.logout();
+  req.session.destroy();
+  res.send("ok");
+});
+
+/** signUp(회원가입) API, POST /user */
 router.post("/", async (req, res, next) => {
   try {
     // 이메일 중복 여부 확인

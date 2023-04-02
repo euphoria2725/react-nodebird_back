@@ -1,8 +1,13 @@
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
+const passport = require("passport");
+const session = require("express-session");
+const cookieParser = require("cookie-parser");
+const morgan = require("morgan");
 
 const db = require("./models");
+const passportConfig = require("./passport");
 
 const userRouter = require("./routes/user");
 const postRouter = require("./routes/post");
@@ -21,10 +26,22 @@ db.sequelize
   .catch((err) => {
     console.error(err);
   });
+passportConfig();
 
+app.use(morgan("dev"));
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser(process.env.COOKIE_SECRET));
+app.use(
+  session({
+    saveUninitialized: false,
+    resave: false,
+    secret: process.env.COOKIE_SECRET,
+  })
+);
+app.use(passport.initialize());
+app.use(passport.session());
 
 // routes
 app.use("/user", userRouter);
