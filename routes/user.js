@@ -2,11 +2,10 @@ const bcrypt = require("bcrypt");
 const express = require("express");
 const passport = require("passport");
 
-const { faker } = require("@faker-js/faker");
-const shortId = require("shortid");
-
 const { User, Post } = require("../models");
 const { isLoggedIn, isNotLoggedIn } = require("../middlewares/index");
+
+const { faker } = require("@faker-js/faker");
 
 const router = express.Router();
 
@@ -15,6 +14,7 @@ API 목록
 - logIn API
 - logOut API
 - signUp API
+- loadUser API
 */
 
 /** logIn API, POST /user/login */
@@ -91,6 +91,42 @@ router.post("/", isNotLoggedIn, async (req, res, next) => {
 
     // 최종 응답
     res.status(201).send("ok");
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
+
+/** loadUser API, GET /user */
+router.get("/", async (req, res, next) => {
+  try {
+    if (req.user) {
+      const fullUserWithoutPassword = await User.findOne({
+        where: { id: req.user.id },
+        attributes: {
+          exclude: ["password"],
+        },
+        include: [
+          {
+            model: Post,
+            attributes: ["id"],
+          },
+          {
+            model: User,
+            as: "Followings",
+            attributes: ["id"],
+          },
+          {
+            model: User,
+            as: "Followers",
+            attributes: ["id"],
+          },
+        ],
+      });
+      res.status(200).json(fullUserWithoutPassword);
+    } else {
+      res.status(200).json(null);
+    }
   } catch (error) {
     console.error(error);
     next(error);

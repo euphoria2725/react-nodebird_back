@@ -31,7 +31,7 @@ passportConfig();
 app.use(morgan("dev"));
 app.use(
   cors({
-    origin: "http://localhost:3061",
+    origin: "http://localhost:3061", // front 서버의 주소
     credentials: true,
   })
 );
