@@ -1,8 +1,5 @@
 const express = require("express");
 
-const { faker } = require("@faker-js/faker");
-const shortId = require("shortid");
-
 const router = express.Router();
 
 const { Post, Image, Comment, User, Hashtag } = require("../models");
@@ -49,17 +46,33 @@ router.post("/", isLoggedIn, async (req, res) => {
   }
 });
 
-// addComment API
-router.post("/:postId/comment", (req, res) => {
-  const data = req.body;
-  const comment = {
-    id: shortId.generate(),
-    content: data.content,
-    User: data.User,
-    postId: data.postId,
-  };
-  console.log(comment);
-  res.json(comment);
+// addComment API, POST /post/1/comment
+router.post("/:postId/comment", isLoggedIn, async (req, res) => {
+  try {
+    // 해당 게시글 존재 여부 확인
+    const post = await Post.findOne({
+      where: { id: req.params.postId },
+    });
+    if (!post) {
+      return res.status(403).send("존재하지 않는 게시글입니다.");
+    }
+    // 게시글이 있다면..
+    const comment = await Comment.create({
+      content: req.body.content,
+      PostId: parseInt(req.body.postId, 10),
+      UserId: req.user.id,
+    });
+    const fullComment = await Comment.findOne({
+      where: { id: comment.id },
+      include: [
+        { model: User, attributes: ["id", "nickname", "profileImageUrl"] },
+      ],
+    });
+    res.status(201).json(fullComment);
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
 });
 
 module.exports = router;
