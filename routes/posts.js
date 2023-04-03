@@ -3,9 +3,6 @@ const express = require("express");
 const { Post, Image, User, Comment } = require("../models");
 const { isLoggedIn, isNotLoggedIn } = require("../middlewares/index");
 
-const { faker } = require("@faker-js/faker");
-const shortId = require("shortid");
-
 const router = express.Router();
 
 // loadPost API, GET /posts

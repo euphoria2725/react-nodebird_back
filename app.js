@@ -5,6 +5,8 @@ const passport = require("passport");
 const session = require("express-session");
 const cookieParser = require("cookie-parser");
 const morgan = require("morgan");
+const fs = require("fs");
+const path = require("path");
 
 const db = require("./models");
 const passportConfig = require("./passport");
@@ -17,6 +19,13 @@ dotenv.config();
 
 const app = express();
 const port = 3000;
+
+try {
+  fs.accessSync("uploads");
+} catch (error) {
+  console.log("uploads 폴더가 없으므로 생성합니다.");
+  fs.mkdirSync("uploads");
+}
 
 db.sequelize
   .sync({ force: false })
@@ -35,6 +44,7 @@ app.use(
     credentials: true,
   })
 );
+app.use("/", express.static(path.join(__dirname, "uploads")));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser(process.env.COOKIE_SECRET));

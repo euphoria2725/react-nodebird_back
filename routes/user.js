@@ -1,21 +1,42 @@
 const bcrypt = require("bcrypt");
 const express = require("express");
 const passport = require("passport");
+const multer = require("multer");
+const path = require("path");
 
 const { User, Post } = require("../models");
 const { isLoggedIn, isNotLoggedIn } = require("../middlewares/index");
 
-const { faker } = require("@faker-js/faker");
-
 const router = express.Router();
+
+const profileImageUpload = multer({
+  storage: multer.diskStorage({
+    destination(req, file, done) {
+      done(null, "uploads");
+    },
+    filename(req, file, done) {
+      const ext = path.extname(file.originalname); // 확장자 추출
+      const basename = path.basename(file.originalname, ext); // 파일명 추출
+      done(null, basename + "_" + new Date().getTime() + ext); // 파일명_1534783892.확장자
+    },
+  }),
+  limits: { fileSize: 20 * 1024 * 1024 },
+});
 
 /*
 API 목록
+- uploadProfileImage API
 - logIn API
 - logOut API
 - signUp API
 - loadUser API
 */
+
+/** uploadProfileImage API */
+router.post("/image", profileImageUpload.single("image"), (req, res, next) => {
+  console.log(req.file);
+  res.json(req.file);
+});
 
 /** logIn API, POST /user/login */
 router.post("/login", isNotLoggedIn, (req, res, next) => {
@@ -86,7 +107,7 @@ router.post("/", isNotLoggedIn, async (req, res, next) => {
       email: req.body.email,
       nickname: req.body.nickname,
       password: hashedPassword,
-      profileImageUrl: faker.image.avatar(), // 추후에 프로필 이미지 업로드 구현하기
+      profileImageUrl: req.body.profileImageUrl,
     });
 
     // 최종 응답
