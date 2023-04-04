@@ -1,50 +1,87 @@
 const express = require("express");
-
-const router = express.Router();
+const multer = require("multer");
+const path = require("path");
 
 const { Post, Image, Comment, User, Hashtag } = require("../models");
 const { isLoggedIn, isNotLoggedIn } = require("../middlewares/index");
 
-// addPost API, POST /post
-router.post("/", isLoggedIn, async (req, res) => {
-  try {
-    const { text } = req.body;
-    const post = await Post.create({
-      content: text,
-      UserId: req.user.id,
-    });
-    const fullPost = await Post.findOne({
-      where: { id: post.id },
-      include: [
-        {
-          model: Image,
-        },
-        {
-          model: Comment,
-          include: [
-            {
-              model: User, // 댓글 작성자
-              attributes: ["id", "nickname", "profileImageUrl"],
-            },
-          ],
-        },
-        {
-          model: User, // 게시글 작성자
-          attributes: ["id", "nickname", "profileImageUrl"],
-        },
-        {
-          model: User,
-          as: "Likers",
-          attributes: ["id"],
-        },
-      ],
-    });
-    res.status(201).json(fullPost);
-  } catch (err) {
-    console.error(err);
-    next(err);
-  }
+const router = express.Router();
+
+const postImagesUpload = multer({
+  storage: multer.diskStorage({
+    destination(req, file, done) {
+      done(null, "uploads");
+    },
+    filename(req, file, done) {
+      const ext = path.extname(file.originalname);
+      const basename = path.basename(file.originalname, ext);
+      done(null, basename + "_" + new Date().getTime() + ext);
+    },
+  }),
+  limits: { fileSize: 20 * 1024 * 1024 },
 });
+
+// uploadPostImages API, POST /post/images
+router.post("/images", postImagesUpload.array("image"), (req, res, next) => {
+  console.log(req.files);
+  res.json(req.files.map((v) => v.filename));
+});
+
+// addPost API, POST /post
+router.post(
+  "/",
+  isLoggedIn,
+  postImagesUpload.none(),
+  async (req, res, next) => {
+    try {
+      const post = await Post.create({
+        content: req.body.content,
+        UserId: req.user.id,
+      });
+      if (req.body.image) {
+        if (Array.isArray(req.body.image)) {
+          const images = await Promise.all(
+            req.body.image.map((image) => Image.create({ src: image }))
+          );
+          await post.addImages(images);
+        } else {
+          const image = await Image.create({ src: req.body.image });
+          await post.addImages(image);
+        }
+      }
+      const fullPost = await Post.findOne({
+        where: { id: post.id },
+        include: [
+          {
+            model: Image,
+          },
+          {
+            model: Comment,
+            include: [
+              {
+                model: User, // 댓글 작성자
+                attributes: ["id", "nickname", "profileImageUrl"],
+              },
+            ],
+          },
+          {
+            model: User, // 게시글 작성자
+            attributes: ["id", "nickname", "profileImageUrl"],
+          },
+          {
+            model: User,
+            as: "Likers",
+            attributes: ["id"],
+          },
+        ],
+      });
+      res.status(201).json(fullPost);
+    } catch (err) {
+      console.error(err);
+      next(err);
+    }
+  }
+);
 
 // addComment API, POST /post/1/comment
 router.post("/:postId/comment", isLoggedIn, async (req, res) => {
