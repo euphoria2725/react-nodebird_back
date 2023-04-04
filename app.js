@@ -11,9 +11,9 @@ const path = require("path");
 const db = require("./models");
 const passportConfig = require("./passport");
 
+const authRouter = require("./routes/auth");
 const userRouter = require("./routes/user");
 const postRouter = require("./routes/post");
-const postsRouter = require("./routes/posts");
 
 dotenv.config();
 
@@ -59,9 +59,9 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // routes
-app.use("/user", userRouter);
-app.use("/post", postRouter);
-app.use("/posts", postsRouter);
+app.use("/auth", authRouter);
+app.use("/users", userRouter);
+app.use("/posts", postRouter);
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);

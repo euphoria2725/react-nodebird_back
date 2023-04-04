@@ -21,13 +21,7 @@ const postImagesUpload = multer({
   limits: { fileSize: 20 * 1024 * 1024 },
 });
 
-// uploadPostImages API, POST /post/images
-router.post("/images", postImagesUpload.array("image"), (req, res, next) => {
-  console.log(req.files);
-  res.json(req.files.map((v) => v.filename));
-});
-
-// addPost API, POST /post
+// addPost API, POST /posts
 router.post(
   "/",
   isLoggedIn,
@@ -83,7 +77,7 @@ router.post(
   }
 );
 
-// addComment API, POST /post/1/comment
+// addComment API, POST /posts/1/comment
 router.post("/:postId/comment", isLoggedIn, async (req, res) => {
   try {
     // 해당 게시글 존재 여부 확인
@@ -110,6 +104,69 @@ router.post("/:postId/comment", isLoggedIn, async (req, res) => {
     console.error(error);
     next(error);
   }
+});
+
+// loadPost API, GET /posts
+router.get("/", async (req, res, next) => {
+  try {
+    const where = {};
+    const posts = await Post.findAll({
+      where,
+      limit: 10,
+      order: [
+        ["createdAt", "DESC"],
+        [Comment, "createdAt", "DESC"],
+      ],
+      include: [
+        {
+          model: User,
+          attributes: ["id", "nickname", "profileImageUrl"],
+        },
+        {
+          model: Image,
+        },
+        {
+          model: Comment,
+          include: [
+            {
+              model: User,
+              attributes: ["id", "nickname", "profileImageUrl"],
+            },
+          ],
+        },
+        {
+          model: User, // 좋아요 누른 사람
+          as: "Likers",
+          attributes: ["id"],
+        },
+        {
+          model: Post,
+          as: "Retweet",
+          include: [
+            {
+              model: User,
+              attributes: ["id", "nickname", "profileImageUrl"],
+            },
+            {
+              model: Image,
+            },
+          ],
+        },
+      ],
+    });
+    // console.log(posts);
+    res.status(200).json(posts);
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
+
+// uploadPostImages API, POST /posts/images
+
+router.post("/images", postImagesUpload.array("image"), (req, res, next) => {
+  console.log(req.files);
+  res.json(req.files.map((v) => v.filename));
 });
 
 module.exports = router;

@@ -1,6 +1,5 @@
 const bcrypt = require("bcrypt");
 const express = require("express");
-const passport = require("passport");
 const multer = require("multer");
 const path = require("path");
 
@@ -25,70 +24,12 @@ const profileImageUpload = multer({
 
 /*
 API 목록
-- uploadProfileImage API
-- logIn API
-- logOut API
 - signUp API
 - loadUser API
+- uploadProfileImage API
 */
 
-/** uploadProfileImage API */
-router.post("/image", profileImageUpload.single("image"), (req, res, next) => {
-  console.log(req.file);
-  res.json(req.file);
-});
-
-/** logIn API, POST /user/login */
-router.post("/login", isNotLoggedIn, (req, res, next) => {
-  passport.authenticate("local", (err, user, info) => {
-    if (err) {
-      console.error(err);
-      return next(err);
-    }
-    if (info) {
-      return res.status(401).send(info.reason);
-    }
-    return req.login(user, async (loginErr) => {
-      if (loginErr) {
-        console.error(loginErr);
-        return next(loginErr);
-      }
-      const fullUserWithoutPassword = await User.findOne({
-        where: { id: user.id },
-        attributes: {
-          exclude: ["password"],
-        },
-        include: [
-          {
-            model: Post,
-            attributes: ["id"],
-          },
-          {
-            model: User,
-            as: "Followings",
-            attributes: ["id"],
-          },
-          {
-            model: User,
-            as: "Followers",
-            attributes: ["id"],
-          },
-        ],
-      });
-      return res.status(200).json(fullUserWithoutPassword);
-    });
-  })(req, res, next);
-});
-
-/** logOut API, POST /user/logout */
-router.post("/logout", isLoggedIn, (req, res, next) => {
-  req.logout(() => {
-    req.session.destroy();
-    res.send("ok");
-  });
-});
-
-/** signUp(회원가입) API, POST /user */
+/** signUp(회원가입) API, POST /users */
 router.post("/", isNotLoggedIn, async (req, res, next) => {
   try {
     // 이메일 중복 여부 확인
@@ -118,7 +59,7 @@ router.post("/", isNotLoggedIn, async (req, res, next) => {
   }
 });
 
-/** loadUser API, GET /user */
+/** loadUser API, GET /users */
 router.get("/", async (req, res, next) => {
   try {
     if (req.user) {
@@ -152,6 +93,12 @@ router.get("/", async (req, res, next) => {
     console.error(error);
     next(error);
   }
+});
+
+/** uploadProfileImage, POST /users/image API */
+router.post("/image", profileImageUpload.single("image"), (req, res, next) => {
+  console.log(req.file);
+  res.json(req.file);
 });
 
 module.exports = router;
