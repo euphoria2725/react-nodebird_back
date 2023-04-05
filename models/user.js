@@ -57,6 +57,7 @@ module.exports = class User extends Model {
     db.User.belongsToMany(db.Post, {
       through: "like",
       as: "Likes",
+      foreignKey: "user_id",
     });
   }
 };

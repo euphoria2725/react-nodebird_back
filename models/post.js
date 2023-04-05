@@ -28,6 +28,10 @@ module.exports = class Post extends Model {
       foreignKey: "user_id",
     });
     // 게시글 좋아요
-    db.Post.belongsToMany(db.User, { through: "like", as: "Likers" });
+    db.Post.belongsToMany(db.User, {
+      through: "like",
+      as: "Likers",
+      foreignKey: "post_id",
+    });
   }
 };

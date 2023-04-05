@@ -28,6 +28,7 @@ API 목록
 - addComment API
 - loadPosts API
 - uploadPostImages API
+- likePost API
 */
 
 // addPost API, POST /posts
@@ -112,20 +113,11 @@ router.get("/", async (req, res, next) => {
         {
           model: User,
           as: "Likers",
-          attributes: ["id", "nickname", "profile_image_url"],
+          attributes: ["id"],
         },
       ],
     });
     res.json(posts);
-  } catch (error) {
-    console.error(error);
-    next(error);
-  }
-});
-router.get("/", async (req, res, next) => {
-  try {
-    const post = await sequelize.query("");
-    res.status(200).json(posts);
   } catch (error) {
     console.error(error);
     next(error);
@@ -136,6 +128,23 @@ router.get("/", async (req, res, next) => {
 router.post("/images", postImagesUpload.array("image"), (req, res, next) => {
   console.log(req.files);
   res.json(req.files.map((v) => v.filename));
+});
+
+// likePost API, POST /posts/:postId/like
+router.post("/:postId/like", async (req, res, next) => {
+  try {
+    const post = await Post.findOne({
+      where: { id: req.params.postId },
+    });
+    post.addLikers(req.user.id);
+    res.json({
+      user_id: req.user.id,
+      post_id: parseInt(req.params.postId, 10),
+    });
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
 });
 
 module.exports = router;
