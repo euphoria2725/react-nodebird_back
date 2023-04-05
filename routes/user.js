@@ -27,6 +27,7 @@ API 목록
 - signUp API
 - loadUser API
 - uploadProfileImage API
+- follow API
 */
 
 /** signUp(회원가입) API, POST /users */
@@ -95,10 +96,40 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-/** uploadProfileImage, POST /users/image API */
+/** uploadProfileImage API, POST /users/image  */
 router.post("/image", profileImageUpload.single("image"), (req, res, next) => {
   console.log(req.file);
   res.json(req.file);
+});
+
+/** follow API, POST /users/:userId/follow */
+router.post("/:userId/follow", isLoggedIn, async (req, res, next) => {
+  try {
+    const user = await User.findOne({ where: { id: req.params.userId } });
+    if (!user) {
+      res.status(403).send("없는 사람을 팔로우하려고 합니다.");
+    }
+    await user.addFollowers(req.user.id); // (followed_id).addFollowers(following_id)
+    res.status(200).json({ id: parseInt(req.params.userId, 10) });
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
+
+/** unfollow API, DELETE /users/:userId/unfollow */
+router.delete("/:userId/unfollow", isLoggedIn, async (req, res, next) => {
+  try {
+    const user = await User.findOne({ where: { id: req.params.userId } });
+    if (!user) {
+      res.status(403).send("없는 사람을 언팔로우하려고 합니다.");
+    }
+    await user.removeFollowers(req.user.id);
+    res.status(200).json({ id: parseInt(req.params.userId, 10) });
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
 });
 
 module.exports = router;

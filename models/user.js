@@ -43,9 +43,10 @@ module.exports = class User extends Model {
     });
     // follow
     db.User.belongsToMany(db.User, {
-      through: "follow",
-      as: "Followers",
-      foreignKey: "followed_id",
+      // db.Project
+      through: "follow", //
+      as: "Followers", // 상반되는 대상 -> Projects
+      foreignKey: "followed_id", // user_id
     });
     db.User.belongsToMany(db.User, {
       through: "follow",
