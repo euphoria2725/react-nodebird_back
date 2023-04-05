@@ -1,8 +1,9 @@
 const express = require("express");
 const multer = require("multer");
 const path = require("path");
+const { QueryTypes } = require("sequelize");
 
-const { Post, Image, Comment, User, Hashtag } = require("../models");
+const { Post, Image, Comment, User, Hashtag, sequelize } = require("../models");
 const { isLoggedIn, isNotLoggedIn } = require("../middlewares/index");
 
 const router = express.Router();
@@ -21,6 +22,14 @@ const postImagesUpload = multer({
   limits: { fileSize: 20 * 1024 * 1024 },
 });
 
+/*
+API 목록
+- addPost API
+- addComment API
+- loadPosts API
+- uploadPostImages API
+*/
+
 // addPost API, POST /posts
 router.post(
   "/",
@@ -28,45 +37,30 @@ router.post(
   postImagesUpload.none(),
   async (req, res, next) => {
     try {
+      console.log("req.user.id", req.user.id);
       const post = await Post.create({
         content: req.body.content,
-        UserId: req.user.id,
+        user_id: req.user.id,
       });
-      if (req.body.image) {
-        if (Array.isArray(req.body.image)) {
-          const images = await Promise.all(
-            req.body.image.map((image) => Image.create({ src: image }))
-          );
-          await post.addImages(images);
-        } else {
-          const image = await Image.create({ src: req.body.image });
-          await post.addImages(image);
-        }
-      }
+      // if (req.body.image) {
+      //   if (Array.isArray(req.body.image)) {
+      //     const images = await Promise.all(
+      //       req.body.image.map((image) =>
+      //         Image.create({ src: image, post_id: post.id })
+      //       )
+      //     );
+      //   } else {
+      //     const image = await Image.create({ src: image, post_id: post.id });
+      //   }
+      // }
       const fullPost = await Post.findOne({
         where: { id: post.id },
         include: [
           {
-            model: Image,
-          },
-          {
-            model: Comment,
-            include: [
-              {
-                model: User, // 댓글 작성자
-                attributes: ["id", "nickname", "profileImageUrl"],
-              },
-            ],
-          },
-          {
-            model: User, // 게시글 작성자
-            attributes: ["id", "nickname", "profileImageUrl"],
-          },
-          {
             model: User,
-            as: "Likers",
-            attributes: ["id"],
+            attributes: ["id", "nickname", "profile_image_url"],
           },
+          { model: User, as: "Likers", attributes: ["id"] },
         ],
       });
       res.status(201).json(fullPost);
@@ -106,55 +100,31 @@ router.post("/:postId/comment", isLoggedIn, async (req, res) => {
   }
 });
 
-// loadPost API, GET /posts
+// loadPosts API, GET /posts
 router.get("/", async (req, res, next) => {
   try {
-    const where = {};
     const posts = await Post.findAll({
-      where,
-      limit: 10,
-      order: [
-        ["createdAt", "DESC"],
-        [Comment, "createdAt", "DESC"],
-      ],
       include: [
         {
           model: User,
-          attributes: ["id", "nickname", "profileImageUrl"],
+          attributes: ["id", "nickname", "profile_image_url"],
         },
         {
-          model: Image,
-        },
-        {
-          model: Comment,
-          include: [
-            {
-              model: User,
-              attributes: ["id", "nickname", "profileImageUrl"],
-            },
-          ],
-        },
-        {
-          model: User, // 좋아요 누른 사람
+          model: User,
           as: "Likers",
-          attributes: ["id"],
-        },
-        {
-          model: Post,
-          as: "Retweet",
-          include: [
-            {
-              model: User,
-              attributes: ["id", "nickname", "profileImageUrl"],
-            },
-            {
-              model: Image,
-            },
-          ],
+          attributes: ["id", "nickname", "profile_image_url"],
         },
       ],
     });
-    // console.log(posts);
+    res.json(posts);
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
+router.get("/", async (req, res, next) => {
+  try {
+    const post = await sequelize.query("");
     res.status(200).json(posts);
   } catch (error) {
     console.error(error);
@@ -163,7 +133,6 @@ router.get("/", async (req, res, next) => {
 });
 
 // uploadPostImages API, POST /posts/images
-
 router.post("/images", postImagesUpload.array("image"), (req, res, next) => {
   console.log(req.files);
   res.json(req.files.map((v) => v.filename));

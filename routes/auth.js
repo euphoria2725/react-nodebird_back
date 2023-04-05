@@ -27,6 +27,7 @@ router.post("/login", isNotLoggedIn, (req, res, next) => {
         console.error(loginErr);
         return next(loginErr);
       }
+
       const fullUserWithoutPassword = await User.findOne({
         where: { id: user.id },
         attributes: {
@@ -49,6 +50,7 @@ router.post("/login", isNotLoggedIn, (req, res, next) => {
           },
         ],
       });
+
       return res.status(200).json(fullUserWithoutPassword);
     });
   })(req, res, next);

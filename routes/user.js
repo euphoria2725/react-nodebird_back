@@ -48,7 +48,7 @@ router.post("/", isNotLoggedIn, async (req, res, next) => {
       email: req.body.email,
       nickname: req.body.nickname,
       password: hashedPassword,
-      profileImageUrl: req.body.profileImageUrl,
+      profile_image_url: req.body.profileImageUrl,
     });
 
     // 최종 응답
@@ -85,7 +85,7 @@ router.get("/", async (req, res, next) => {
           },
         ],
       });
-      res.status(200).json(fullUserWithoutPassword);
+      return res.status(200).json(fullUserWithoutPassword);
     } else {
       res.status(200).json(null);
     }
