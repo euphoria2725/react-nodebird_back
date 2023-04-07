@@ -28,6 +28,9 @@ API 목록
 - signUp API
 - loadUser API
 - follow API
+- unfollow API
+- removeFollower API
+- changeNickname API
 */
 
 /** uploadProfileImage API, POST /users/image  */
@@ -181,6 +184,29 @@ router.delete("/followers/:userId", isLoggedIn, async (req, res, next) => {
     connection.release();
 
     res.status(200).json({ id: userId });
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
+
+/** changeNickname API, DELETE /users/:userId/nickname */
+router.patch("/:userId/nickname", isLoggedIn, async (req, res, next) => {
+  try {
+    const { nickname } = req.body;
+    let { userId } = req.params;
+    userId = parseInt(userId, 10);
+
+    const connection = await pool.getConnection(async (conn) => conn);
+
+    await connection.query("UPDATE user SET nickname=? WHERE id=?", [
+      nickname,
+      userId,
+    ]);
+
+    connection.release();
+
+    res.status(200).json({ nickname });
   } catch (error) {
     console.error(error);
     next(error);

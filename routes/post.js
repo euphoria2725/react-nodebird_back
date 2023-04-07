@@ -88,6 +88,8 @@ API 목록
 - loadPosts API
 - addComment API
 - likePost API
+- unlikePost API
+- removePost API
 */
 
 // uploadPostImages API, POST /posts/images
@@ -283,6 +285,28 @@ router.delete("/:postId/like", isLoggedIn, async (req, res, next) => {
       user_id: req.user.id,
       post_id: postId,
     });
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
+
+/** removePost API, DELETE /posts/:postId */
+router.delete("/:postId", isLoggedIn, async (req, res, next) => {
+  try {
+    const connection = await pool.getConnection(async (conn) => conn);
+
+    let { postId } = req.params;
+    postId = parseInt(postId, 10);
+
+    await connection.query("DELETE FROM post WHERE id=? AND user_id", [
+      postId,
+      req.user.id,
+    ]);
+
+    connection.release();
+
+    res.json({ id: postId });
   } catch (error) {
     console.error(error);
     next(error);
