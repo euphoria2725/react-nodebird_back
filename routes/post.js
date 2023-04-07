@@ -43,6 +43,30 @@ const makePost = async (post) => {
     post.id
   );
 
+  // 해당 게시글에 작성된 댓글 불러오기
+  const [commentArr] = await connection.query(
+    `SELECT comment.id AS id, comment.content AS content, comment.created_at AS created_at, user.id AS user_id, user.nickname AS user_nickname, user.profile_image_url AS user_profile_image_url
+    FROM comment 
+    LEFT JOIN user 
+    ON comment.user_id=user.id 
+    WHERE comment.post_id = ?
+    ORDER BY comment.created_at DESC`,
+    post.id
+  );
+  newComments = commentArr.map((c) => {
+    return {
+      id: c.id,
+      content: c.content,
+      created_at: c.created_at,
+      User: {
+        id: c.user_id,
+        nickname: c.user_nickname,
+        profile_image_url: c.user_profile_image_url,
+      },
+    };
+  });
+  console.log(newComments);
+
   connection.release();
 
   const res = {
@@ -51,6 +75,7 @@ const makePost = async (post) => {
     User: user,
     Likers: likerArr,
     Images: imageArr,
+    Comments: newComments,
   };
 
   return res;
@@ -137,6 +162,7 @@ router.post(
         User: user,
         Likers: likerArr,
         Images: imageArr,
+        Comments: [],
       };
 
       connection.release();
@@ -169,34 +195,49 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-// addComment API, POST /posts/1/comment
-// router.post("/:postId/comment", isLoggedIn, async (req, res) => {
-//   try {
-//     // 해당 게시글 존재 여부 확인
-//     const post = await Post.findOne({
-//       where: { id: req.params.postId },
-//     });
-//     if (!post) {
-//       return res.status(403).send("존재하지 않는 게시글입니다.");
-//     }
-//     // 게시글이 있다면..
-//     const comment = await Comment.create({
-//       content: req.body.content,
-//       PostId: parseInt(req.body.postId, 10),
-//       UserId: req.user.id,
-//     });
-//     const fullComment = await Comment.findOne({
-//       where: { id: comment.id },
-//       include: [
-//         { model: User, attributes: ["id", "nickname", "profileImageUrl"] },
-//       ],
-//     });
-//     res.status(201).json(fullComment);
-//   } catch (error) {
-//     console.error(error);
-//     next(error);
-//   }
-// });
+/** addComment API, POST /posts/1/comment */
+router.post("/:postId/comment", isLoggedIn, async (req, res) => {
+  try {
+    const { content } = req.body;
+    let { postId } = req.params;
+    postId = parseInt(postId, 10);
+
+    const connection = await pool.getConnection(async (conn) => conn);
+
+    const [insertInfo] = await connection.query(
+      "INSERT INTO comment(content, post_id, user_id) VALUES(?, ?, ?)",
+      [content, postId, req.user.id]
+    );
+
+    const [commentArr] = await connection.query(
+      "SELECT * FROM comment WHERE id=?",
+      insertInfo.insertId
+    );
+    const newComment = commentArr[0];
+
+    const [userArr] = await connection.query(
+      "SELECT id, nickname, profile_image_url FROM user WHERE id=?",
+      req.user.id
+    );
+    const user = userArr[0];
+
+    const fullComment = {
+      ...newComment,
+      User: {
+        id: user.id,
+        nickname: user.nickname,
+        profile_image_url: user.profile_image_url,
+      },
+    };
+
+    connection.release();
+
+    res.status(201).json(fullComment);
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
 
 /** likePost API, POST /posts/:postId/like */
 router.post("/:postId/like", isLoggedIn, async (req, res, next) => {
