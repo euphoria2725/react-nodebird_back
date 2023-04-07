@@ -198,7 +198,7 @@ router.get("/", async (req, res, next) => {
 //   }
 // });
 
-// likePost API, POST /posts/:postId/like
+/** likePost API, POST /posts/:postId/like */
 router.post("/:postId/like", isLoggedIn, async (req, res, next) => {
   try {
     const connection = await pool.getConnection(async (conn) => conn);
@@ -208,6 +208,31 @@ router.post("/:postId/like", isLoggedIn, async (req, res, next) => {
 
     await connection.query(
       "INSERT INTO react_nodebird.like(user_id, post_id) VALUES(?, ?)",
+      [req.user.id, postId]
+    );
+
+    connection.release();
+
+    res.json({
+      user_id: req.user.id,
+      post_id: postId,
+    });
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
+
+/** unlikePost API, DELETE /posts/:postId/like */
+router.delete("/:postId/like", isLoggedIn, async (req, res, next) => {
+  try {
+    const connection = await pool.getConnection(async (conn) => conn);
+
+    let { postId } = req.params;
+    postId = parseInt(postId, 10);
+
+    await connection.query(
+      "DELETE FROM react_nodebird.like WHERE user_id=? AND post_id=?",
       [req.user.id, postId]
     );
 
