@@ -9,7 +9,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@faker-js/faker": "^7.6.0",
     "bcrypt": "^5.1.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
@@ -21,9 +20,6 @@
     "mysql2": "^3.2.0",
     "nodemon": "^2.0.22",
     "passport": "^0.6.0",
-    "passport-local": "^1.0.0",
-    "sequelize": "^6.30.0",
-    "sequelize-cli": "^6.6.0",
-    "shortid": "^2.2.16"
+    "passport-local": "^1.0.0"
   }
 }

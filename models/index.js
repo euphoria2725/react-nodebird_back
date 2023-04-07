@@ -1,32 +1,16 @@
-const Sequelize = require("sequelize");
-const user = require("./user");
-const post = require("./post");
+const mysql = require("mysql2/promise");
+const dotenv = require("dotenv");
 
-const env = process.env.NODE_ENV || "development";
-const config = require("../config/config")[env];
-const db = {};
+dotenv.config();
 
-const sequelize = new Sequelize(
-  config.database,
-  config.username,
-  config.password,
-  config
-);
-
-db.User = user;
-db.Post = post;
-
-Object.keys(db).forEach((modelName) => {
-  db[modelName].init(sequelize);
+const pool = mysql.createPool({
+  host: "localhost",
+  user: "root",
+  port: "3306",
+  password: process.env.DB_PASSWORD,
+  database: "react_nodebird",
 });
 
-Object.keys(db).forEach((modelName) => {
-  if (db[modelName].associate) {
-    db[modelName].associate(db);
-  }
-});
-
-db.sequelize = sequelize;
-db.Sequelize = Sequelize;
-
-module.exports = db;
+module.exports = {
+  pool: pool,
+};

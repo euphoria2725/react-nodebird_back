@@ -1,9 +1,9 @@
-const bcrypt = require("bcrypt");
 const express = require("express");
+const bcrypt = require("bcrypt");
 const multer = require("multer");
 const path = require("path");
 
-const { User, Post } = require("../models");
+const { pool } = require("../models/index");
 const { isLoggedIn, isNotLoggedIn } = require("../middlewares/index");
 
 const router = express.Router();
@@ -24,33 +24,43 @@ const profileImageUpload = multer({
 
 /*
 API 목록
+- uploadProfileImage API
 - signUp API
 - loadUser API
-- uploadProfileImage API
 - follow API
 */
+
+/** uploadProfileImage API, POST /users/image  */
+router.post("/image", profileImageUpload.single("image"), (req, res, next) => {
+  console.log(req.file);
+  res.json(req.file);
+});
 
 /** signUp(회원가입) API, POST /users */
 router.post("/", isNotLoggedIn, async (req, res, next) => {
   try {
+    const connection = await pool.getConnection(async (conn) => conn);
+
+    const { email, nickname, password, profile_image_url } = req.body;
+
     // 이메일 중복 여부 확인
-    const exUser = await User.findOne({
-      where: {
-        email: req.body.email,
-      },
-    });
-    if (exUser) {
+    // 이 때, 비밀번호까지 찾아와야지 비밀번호 비교 후, 로그인 여부 판단할 수 있다.
+    const [userArr] = await connection.query(
+      "SELECT * FROM user WHERE email=?",
+      email
+    );
+    if (userArr.length > 0) {
       return res.status(403).send("이미 사용 중인 이메일입니다.");
     }
 
     // 비밀번호 암호화 후 회원 생성
-    const hashedPassword = await bcrypt.hash(req.body.password, 12);
-    await User.create({
-      email: req.body.email,
-      nickname: req.body.nickname,
-      password: hashedPassword,
-      profile_image_url: req.body.profileImageUrl,
-    });
+    const hashedPassword = await bcrypt.hash(password, 12);
+    await connection.query(
+      "INSERT INTO user(email, nickname, password, profile_image_url) VALUES(?, ?, ?, ?)",
+      [email, nickname, hashedPassword, profile_image_url]
+    );
+
+    connection.release();
 
     // 최종 응답
     res.status(201).send("ok");
@@ -64,28 +74,43 @@ router.post("/", isNotLoggedIn, async (req, res, next) => {
 router.get("/", async (req, res, next) => {
   try {
     if (req.user) {
-      const fullUserWithoutPassword = await User.findOne({
-        where: { id: req.user.id },
-        attributes: {
-          exclude: ["password"],
-        },
-        include: [
-          {
-            model: Post,
-            attributes: ["id"],
-          },
-          {
-            model: User,
-            as: "Followings",
-            attributes: ["id"],
-          },
-          {
-            model: User,
-            as: "Followers",
-            attributes: ["id"],
-          },
-        ],
-      });
+      const connection = await pool.getConnection(async (conn) => conn);
+
+      // 사용자 정보
+      const [userArr] = await connection.query(
+        "SELECT id, email, nickname, profile_image_url FROM user WHERE id=?",
+        req.user.id
+      );
+      const user = userArr[0];
+
+      // 사용자가 작성한 글 목록
+      const [posts] = await connection.query(
+        "SELECT id FROM post WHERE user_id=?",
+        user.id
+      );
+
+      // 사용자가 팔로잉한 유저들
+      const [followings] = await connection.query(
+        "SELECT followed_id AS id, user.nickname FROM follow LEFT JOIN user ON followed_id=user.id WHERE following_id=?",
+        user.id
+      );
+
+      // 사용자를 팔로우한 유저들
+      const [followers] = await connection.query(
+        "SELECT following_id AS id, user.nickname FROM follow LEFT JOIN user ON following_id=user.id WHERE followed_id=?",
+        user.id
+      );
+
+      const fullUserWithoutPassword = {
+        ...user,
+        Posts: posts,
+        Followings: followings,
+        Followers: followers,
+      };
+
+      connection.release();
+
+      // user에 사용자 정보 있음.
       return res.status(200).json(fullUserWithoutPassword);
     } else {
       res.status(200).json(null);
@@ -96,21 +121,22 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-/** uploadProfileImage API, POST /users/image  */
-router.post("/image", profileImageUpload.single("image"), (req, res, next) => {
-  console.log(req.file);
-  res.json(req.file);
-});
-
 /** follow API, POST /users/:userId/follow */
 router.post("/:userId/follow", isLoggedIn, async (req, res, next) => {
   try {
-    const user = await User.findOne({ where: { id: req.params.userId } });
-    if (!user) {
-      res.status(403).send("없는 사람을 팔로우하려고 합니다.");
-    }
-    await user.addFollowers(req.user.id); // (followed_id).addFollowers(following_id)
-    res.status(200).json({ id: parseInt(req.params.userId, 10) });
+    let { userId } = req.params;
+    userId = parseInt(userId, 10);
+
+    const connection = await pool.getConnection(async (conn) => conn);
+
+    await connection.query(
+      "INSERT INTO follow(following_id, followed_id) VALUES (?, ?)",
+      [req.user.id, userId]
+    );
+
+    connection.release();
+
+    res.status(200).json({ id: userId });
   } catch (error) {
     console.error(error);
     next(error);
@@ -118,14 +144,43 @@ router.post("/:userId/follow", isLoggedIn, async (req, res, next) => {
 });
 
 /** unfollow API, DELETE /users/:userId/unfollow */
-router.delete("/:userId/unfollow", isLoggedIn, async (req, res, next) => {
+router.delete("/:userId/follow", isLoggedIn, async (req, res, next) => {
   try {
-    const user = await User.findOne({ where: { id: req.params.userId } });
-    if (!user) {
-      res.status(403).send("없는 사람을 언팔로우하려고 합니다.");
-    }
-    await user.removeFollowers(req.user.id);
-    res.status(200).json({ id: parseInt(req.params.userId, 10) });
+    let { userId } = req.params;
+    userId = parseInt(userId, 10);
+
+    const connection = await pool.getConnection(async (conn) => conn);
+
+    await connection.query(
+      "DELETE FROM follow WHERE following_id=? AND followed_id=?",
+      [req.user.id, userId]
+    );
+
+    connection.release();
+
+    res.status(200).json({ id: userId });
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
+
+/** removeFollower API, DELETE /users/followers/:userId */
+router.delete("/followers/:userId", isLoggedIn, async (req, res, next) => {
+  try {
+    let { userId } = req.params;
+    userId = parseInt(userId, 10);
+
+    const connection = await pool.getConnection(async (conn) => conn);
+
+    await connection.query(
+      "DELETE FROM follow WHERE following_id=? AND followed_id=?",
+      [userId, req.user.id]
+    );
+
+    connection.release();
+
+    res.status(200).json({ id: userId });
   } catch (error) {
     console.error(error);
     next(error);

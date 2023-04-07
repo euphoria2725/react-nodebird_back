@@ -27,14 +27,6 @@ try {
   fs.mkdirSync("uploads");
 }
 
-db.sequelize
-  .sync({ force: false })
-  .then(() => {
-    console.log("db 연결 성공");
-  })
-  .catch((err) => {
-    console.error(err);
-  });
 passportConfig();
 
 app.use(morgan("dev"));
