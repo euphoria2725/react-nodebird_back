@@ -4,6 +4,7 @@ const path = require("path");
 
 const { pool } = require("../models/index");
 const { isLoggedIn, isNotLoggedIn } = require("../middlewares/index");
+const { REFUSED } = require("dns");
 
 const router = express.Router();
 
@@ -45,12 +46,17 @@ const makePost = async (post) => {
 
   // 해당 게시글에 작성된 댓글 불러오기
   const [commentArr] = await connection.query(
-    `SELECT comment.id AS id, comment.content AS content, comment.created_at AS created_at, user.id AS user_id, user.nickname AS user_nickname, user.profile_image_url AS user_profile_image_url
-    FROM comment 
-    LEFT JOIN user 
-    ON comment.user_id=user.id 
-    WHERE comment.post_id = ?
-    ORDER BY comment.created_at DESC`,
+    `SELECT comment.id             AS id,
+            comment.content        AS content,
+            comment.created_at     AS created_at,
+            user.id                AS user_id,
+            user.nickname          AS user_nickname,
+            user.profile_image_url AS user_profile_image_url
+     FROM comment
+              LEFT JOIN user
+                        ON comment.user_id = user.id
+     WHERE comment.post_id = ?
+     ORDER BY comment.created_at DESC`,
     post.id
   );
   newComments = commentArr.map((c) => {
@@ -65,7 +71,6 @@ const makePost = async (post) => {
       },
     };
   });
-  console.log(newComments);
 
   connection.release();
 
@@ -112,6 +117,52 @@ router.post(
         "INSERT INTO post(content, user_id) VALUES(?, ?)",
         [req.body.content, req.user.id]
       );
+
+      // 해시태그들 DB에 넣기 -> 배열의 순차 처리
+      const hashtags = req.body.content.match(/#[^\s#]+/g);
+      if (hashtags) {
+        for (let tag of hashtags) {
+          // console.log("start");
+
+          // 일치하는 hashtag 찾기
+          const [hashtagArr] = await connection.query(
+            "SELECT * FROM hashtag WHERE name=?",
+            tag.slice(1).toLowerCase()
+          );
+
+          if (hashtagArr.length === 0) {
+            // 일치하는 hashtag가 없다면, DB에 넣기
+            const [newHashtagInfo] = await connection.query(
+              "INSERT INTO hashtag(name) VALUES(?)",
+              tag.slice(1).toLowerCase()
+            );
+
+            // hashtag와 게시글 관계 mapping
+            await connection.query(
+              "INSERT INTO post_hashtag(post_id, hashtag_id) VALUES(?, ?)",
+              [newPostInfo.insertId, newHashtagInfo.insertId]
+            );
+          } else {
+            // 일치하는 hashtag가 있을 경우
+            const hashtag = hashtagArr[0];
+
+            // 사용자가 '#태그 #태그'처럼 mapping 중복 방지
+            const [mappingArr] = await connection.query(
+              "SELECT * from post_hashtag WHERE post_id=? AND hashtag_id=?",
+              [newPostInfo.insertId, hashtag.id]
+            );
+            if (mappingArr.length === 0) {
+              // hashtag와 게시글 관계 mapping
+              await connection.query(
+                "INSERT INTO post_hashtag(post_id, hashtag_id) VALUES(?, ?)",
+                [newPostInfo.insertId, hashtag.id]
+              );
+            }
+          }
+
+          // console.log("end");
+        }
+      }
 
       // 이미지들 DB에 넣기
       if (req.body.image) {
@@ -182,15 +233,41 @@ router.get("/", async (req, res, next) => {
   try {
     const connection = await pool.getConnection(async (conn) => conn);
 
-    const [postArr] = await connection.query(
-      "SELECT * FROM post ORDER BY created_at DESC"
-    );
+    let { lastId } = req.query;
+    lastId = parseInt(lastId, 10);
 
-    const newPostArr = await Promise.all(postArr.map(makePost));
+    const limit = 5;
 
-    connection.release();
+    if (lastId > 0) {
+      const lastId = parseInt(req.query.lastId, 10);
+      const [postArr] = await connection.query(
+        `SELECT *
+         FROM react_nodebird.post
+         WHERE id < ?
+         ORDER BY created_at DESC LIMIT ?`,
+        [lastId, limit]
+      );
 
-    res.json(newPostArr);
+      const newPostArr = await Promise.all(postArr.map(makePost));
+
+      connection.release();
+
+      res.status(200).json(newPostArr);
+    } else {
+      // lastId=0일 경우
+      const [postArr] = await connection.query(
+        `SELECT *
+         FROM react_nodebird.post
+         ORDER BY created_at DESC LIMIT ?`,
+        limit
+      );
+
+      const newPostArr = await Promise.all(postArr.map(makePost));
+
+      connection.release();
+
+      res.status(200).json(newPostArr);
+    }
   } catch (error) {
     console.error(error);
     next(error);
