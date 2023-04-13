@@ -6,6 +6,8 @@ const path = require("path");
 const { pool } = require("../models/index");
 const { isLoggedIn, isNotLoggedIn } = require("../middlewares/index");
 
+const modifyPost = require("../config/modifyPost");
+
 const router = express.Router();
 
 const profileImageUpload = multer({
@@ -26,11 +28,13 @@ const profileImageUpload = multer({
 API 목록
 - uploadProfileImage API
 - signUp API
-- loadUser API
+- loadMyInfo API
 - follow API
 - unfollow API
 - removeFollower API
 - changeNickname API
+- loadUser API
+- loadUserPosts API
 */
 
 /** uploadProfileImage API, POST /users/image  */
@@ -73,9 +77,11 @@ router.post("/", isNotLoggedIn, async (req, res, next) => {
   }
 });
 
-/** loadUser API, GET /users */
+/** loadMyInfo API, GET /users */
 router.get("/", async (req, res, next) => {
   try {
+    console.log("req.headers", req.headers);
+
     if (req.user) {
       const connection = await pool.getConnection(async (conn) => conn);
 
@@ -211,6 +217,72 @@ router.patch("/:userId/nickname", isLoggedIn, async (req, res, next) => {
     console.error(error);
     next(error);
   }
+});
+
+/** loadUser API, GET /users/:userId */
+router.get("/:userId", async (req, res, next) => {
+  let { userId } = req.params;
+  userId = parseInt(userId, 10);
+
+  const connection = await pool.getConnection(async (conn) => conn);
+
+  // 사용자 정보
+  const [userArr] = await connection.query(
+    "SELECT id, email, nickname, profile_image_url FROM user WHERE id=?",
+    userId
+  );
+  const user = userArr[0];
+
+  // 사용자가 작성한 글 목록
+  const [posts] = await connection.query(
+    "SELECT id FROM post WHERE user_id=?",
+    userId
+  );
+
+  // 사용자가 팔로잉한 유저들
+  const [followings] = await connection.query(
+    "SELECT followed_id AS id, user.nickname FROM follow LEFT JOIN user ON followed_id=user.id WHERE following_id=?",
+    userId
+  );
+
+  // 사용자를 팔로우한 유저들
+  const [followers] = await connection.query(
+    "SELECT following_id AS id, user.nickname FROM follow LEFT JOIN user ON following_id=user.id WHERE followed_id=?",
+    userId
+  );
+
+  const fullUserWithoutPassword = {
+    ...user,
+    Posts: posts,
+    Followings: followings,
+    Followers: followers,
+  };
+
+  console.log(fullUserWithoutPassword);
+
+  connection.release();
+
+  // user에 사용자 정보 있음.
+  return res.status(200).json(fullUserWithoutPassword);
+});
+
+/** loadUserPosts API, POST users/:userId/posts */
+router.get("/:userId/posts", async (req, res, next) => {
+  let { userId } = req.params;
+  userId = parseInt(userId, 10);
+
+  const connection = await pool.getConnection(async (conn) => conn);
+
+  const [postArr] = await connection.query(
+    "SELECT * FROM post WHERE user_id=?",
+    userId
+  );
+
+  const newPostArr = await Promise.all(postArr.map(modifyPost));
+
+  connection.release();
+
+  res.status(200).json(newPostArr);
 });
 
 module.exports = router;
