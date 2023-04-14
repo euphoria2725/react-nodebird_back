@@ -32,6 +32,7 @@ API 목록
 - unlikePost API
 - removePost API
 - retweet API
+- loadPost API
 */
 
 // uploadPostImages API, POST /posts/images
@@ -383,6 +384,33 @@ router.post("/:postId/retweet", isLoggedIn, async (req, res, next) => {
     connection.release();
 
     res.status(201).json(fullPost);
+  } catch (error) {
+    console.error(error);
+    next(error);
+  }
+});
+
+/** loadPost API, GET /posts/:postId */
+router.get("/:postId", async (req, res, next) => {
+  try {
+    let { postId } = req.params;
+    postId = parseInt(postId, 10);
+
+    const connection = await pool.getConnection(async (conn) => conn);
+
+    const [postArr] = await connection.query(
+      "SELECT * FROM post WHERE id=?",
+      postId
+    );
+    const post = postArr[0];
+
+    console.log("post", post);
+
+    const fullPost = await modifyPost(post);
+
+    connection.release();
+
+    res.json(fullPost);
   } catch (error) {
     console.error(error);
     next(error);
