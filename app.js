@@ -14,6 +14,7 @@ const passportConfig = require("./passport");
 const authRouter = require("./routes/auth");
 const userRouter = require("./routes/user");
 const postRouter = require("./routes/post");
+const hashtagRouter = require("./routes/hashtag");
 
 dotenv.config();
 
@@ -54,7 +55,8 @@ app.use(passport.session());
 app.use("/auth", authRouter);
 app.use("/users", userRouter);
 app.use("/posts", postRouter);
+app.use("/hashtags", hashtagRouter);
 
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`);
+  console.log(`Twitter Back-End server is running on port ${port}`);
 });
