@@ -59,8 +59,6 @@ router.post(
       const hashtags = req.body.content.match(/#[^\s#]+/g);
       if (hashtags) {
         for (let tag of hashtags) {
-          // console.log("start");
-
           // 일치하는 hashtag 찾기
           const [hashtagArr] = await connection.query(
             "SELECT * FROM hashtag WHERE name=?",
@@ -96,8 +94,6 @@ router.post(
               );
             }
           }
-
-          // console.log("end");
         }
       }
 
@@ -153,6 +149,7 @@ router.post(
         Likers: likerArr,
         Images: imageArr,
         Comments: [],
+        Retweeter: null,
       };
 
       connection.release();
@@ -336,8 +333,8 @@ router.post("/:postId/retweet", isLoggedIn, async (req, res, next) => {
     postId = parseInt(postId, 10);
 
     await connection.query(
-      "INSERT INTO post(retweet_id, retweet_user_id) VALUES(?, ?)",
-      [postId, req.user.id]
+      "INSERT INTO post(user_id, retweet_id) VALUES(?, ?)",
+      [req.user.id, postId]
     );
 
     // 리트윗한 게시글 가져오기
@@ -347,28 +344,28 @@ router.post("/:postId/retweet", isLoggedIn, async (req, res, next) => {
     );
     const retweetedPost = retweetedPostArr[0];
 
-    // 리트윗 게시글 작성자 정보 불러오기
+    // 해당 게시글 작성자 정보 불러오기
     const [userArr] = await connection.query(
       "SELECT id, nickname, profile_image_url FROM user WHERE id = ?",
       retweetedPost.user_id
     );
     const user = userArr[0];
 
-    // 리트윗 게시글 좋아요한 사용자 불러오기
+    // 해당 게시글 좋아요한 사용자 불러오기
     const [likerArr] = await connection.query(
       "SELECT user_id AS id FROM react_nodebird.like WHERE post_id=?",
       retweetedPost.id
     );
 
-    // 삽입한 이미지 불러오기
+    // 해당 이미지 불러오기
     const [imageArr] = await connection.query(
       "SELECT src FROM image WHERE post_id=?",
       retweetedPost.id
     );
 
-    // 리트윗한 사람의 닉네임 가져오기
+    // 리트윗한 사람의 정보 가져오기
     const [retweeterArr] = await connection.query(
-      "SELECT * FROM user WHERE id=?",
+      "SELECT id, nickname, profile_image_url FROM user WHERE id=?",
       req.user.id
     );
     const retweeter = retweeterArr[0];
@@ -376,11 +373,11 @@ router.post("/:postId/retweet", isLoggedIn, async (req, res, next) => {
     const fullPost = {
       id: retweetedPost.id,
       content: retweetedPost.content,
-      retweet_user_nickname: retweeter.nickname,
       User: user,
       Likers: likerArr,
       Images: imageArr,
       Comments: [],
+      Retweeter: retweeter,
     };
 
     connection.release();
