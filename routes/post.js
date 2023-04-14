@@ -218,6 +218,18 @@ router.post("/:postId/comment", isLoggedIn, async (req, res) => {
 
     const connection = await pool.getConnection(async (conn) => conn);
 
+    // 해당 게시글이 리트윗을 한 게시글인지 확인하기
+    const [postArr] = await connection.query(
+      "SELECT * FROM post WHERE id=?",
+      postId
+    );
+    const post = postArr[0];
+
+    // postId를 retweet_id로 바꾸어주기
+    if (post.retweet_id) {
+      postId = post.retweet_id;
+    }
+
     const [insertInfo] = await connection.query(
       "INSERT INTO comment(content, post_id, user_id) VALUES(?, ?, ?)",
       [content, postId, req.user.id]
@@ -371,13 +383,41 @@ router.post("/:postId/retweet", isLoggedIn, async (req, res, next) => {
     );
     const retweeter = retweeterArr[0];
 
+    // 해당 게시글에 작성된 댓글 불러오기
+    const [commentArr] = await connection.query(
+      `SELECT comment.id             AS id,
+              comment.content        AS content,
+              comment.created_at     AS created_at,
+              user.id                AS user_id,
+              user.nickname          AS user_nickname,
+              user.profile_image_url AS user_profile_image_url
+       FROM comment
+                LEFT JOIN user
+                          ON comment.user_id = user.id
+       WHERE comment.post_id = ?
+       ORDER BY comment.created_at DESC`,
+      retweetedPost.id
+    );
+    newComments = commentArr.map((c) => {
+      return {
+        id: c.id,
+        content: c.content,
+        created_at: c.created_at,
+        User: {
+          id: c.user_id,
+          nickname: c.user_nickname,
+          profile_image_url: c.user_profile_image_url,
+        },
+      };
+    });
+
     const fullPost = {
       id: retweetedPost.id,
       content: retweetedPost.content,
       User: user,
       Likers: likerArr,
       Images: imageArr,
-      Comments: [],
+      Comments: newComments,
       Retweeter: retweeter,
     };
 
