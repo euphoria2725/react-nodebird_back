@@ -71,6 +71,7 @@ const modifyPost = async (post) => {
     const fullPost = {
       id: post.id,
       content: retweetedPost.content,
+      created_at: retweetedPost.created_at,
       User: user,
       Likers: likerArr,
       Images: imageArr,
@@ -132,7 +133,7 @@ const modifyPost = async (post) => {
     const fullPost = {
       id: post.id,
       content: post.content,
-      retweet_user_nickname: post.retweet_user_id,
+      created_at: post.created_at,
       User: user,
       Likers: likerArr,
       Images: imageArr,
