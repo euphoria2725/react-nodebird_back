@@ -398,7 +398,7 @@ router.post("/:postId/retweet", isLoggedIn, async (req, res, next) => {
        ORDER BY comment.created_at DESC`,
       retweetedPost.id
     );
-    newComments = commentArr.map((c) => {
+    const newComments = commentArr.map((c) => {
       return {
         id: c.id,
         content: c.content,
