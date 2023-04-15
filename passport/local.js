@@ -1,6 +1,7 @@
 const passport = require("passport");
 const { Strategy: LocalStrategy } = require("passport-local");
 const bcrypt = require("bcrypt");
+
 const { pool } = require("../models/index");
 
 module.exports = () => {
@@ -20,21 +21,21 @@ module.exports = () => {
             email
           );
           const user = userArr[0];
-          console.log("user", user);
 
           connection.release();
 
           // 해당 eamil을 가진 사용자가 없다면 error 처리
           if (!user) {
-            return done(null, false, { reason: "존재하지 않는 이메일입니다." });
+            return done(null, false, { reason: "존재하지 않는 이메일입니다." }); // (error, user, info)
           }
 
           // 비밀번호 일치 여부 확인
           const result = await bcrypt.compare(password, user.password);
           if (result) {
             return done(null, user);
+          } else {
+            return done(null, false, { reason: "비밀번호가 틀렸습니다." });
           }
-          return done(null, false, { reason: "비밀번호가 틀렸습니다." });
         } catch (error) {
           console.error(error);
           return done(error);

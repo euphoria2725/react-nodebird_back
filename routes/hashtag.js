@@ -6,7 +6,7 @@ const { isLoggedIn, isNotLoggedIn } = require("../middlewares/index");
 
 const router = express.Router();
 
-const modifyPost = require("../config/modifyPost");
+const modifyPost = require("../util/modifyPost");
 
 /*
 API 목록

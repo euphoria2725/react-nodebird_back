@@ -8,18 +8,12 @@ const morgan = require("morgan");
 const fs = require("fs");
 const path = require("path");
 
-const db = require("./models");
 const passportConfig = require("./passport");
 
 const authRouter = require("./routes/auth");
 const userRouter = require("./routes/user");
 const postRouter = require("./routes/post");
 const hashtagRouter = require("./routes/hashtag");
-
-dotenv.config();
-
-const app = express();
-const port = 3000;
 
 try {
   fs.accessSync("uploads");
@@ -28,7 +22,11 @@ try {
   fs.mkdirSync("uploads");
 }
 
+dotenv.config();
 passportConfig();
+
+const app = express();
+const port = 3000;
 
 app.use(morgan("dev"));
 app.use(
@@ -58,5 +56,5 @@ app.use("/posts", postRouter);
 app.use("/hashtags", hashtagRouter);
 
 app.listen(port, () => {
-  console.log(`Twitter Back-End server is running on port ${port}`);
+  console.log(`Twitter back-end server is now running on port ${port}`);
 });

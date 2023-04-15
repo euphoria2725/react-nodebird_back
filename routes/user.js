@@ -6,7 +6,7 @@ const path = require("path");
 const { pool } = require("../models/index");
 const { isLoggedIn, isNotLoggedIn } = require("../middlewares/index");
 
-const modifyPost = require("../config/modifyPost");
+const modifyPost = require("../util/modifyPost");
 
 const router = express.Router();
 
